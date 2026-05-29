@@ -22,6 +22,7 @@ TOKEN_DEFS = [
     ("OPERADOR",       r"[+\-*/=]"),
     ("PARENTESIS_AB",  r"\("),
     ("PARENTESIS_CI",  r"\)"),
+    ("COMA",           r","),
     ("PUNTO_COMA",     r";"),
     ("IDENTIFICADOR",  r"[a-zA-ZáéíóúÁÉÍÓÚñÑ_][a-zA-ZáéíóúÁÉÍÓÚñÑ0-9_]*"),
 ]
@@ -71,22 +72,22 @@ def dividir_por_punto_coma(tokens):
 def validar_expresion(tokens, variables, tipo_esperado):
     for t in tokens:
         if t["tipo"] == "DESCONOCIDO":
-            return f"Carácter inválido: '{t['valor']}'"
+            return f"Joa compadre, '{t['valor']}' no lo reconozco, eso no va ahí"
         if t["tipo"] == "IDENTIFICADOR":
             if t["valor"] not in variables:
-                return f"Variable '{t['valor']}' no fue declarada"
+                return f"Epa, '{t['valor']}' no existe, declárale primero"
     if len(tokens) == 1:
         t = tokens[0]
         if t["tipo"] == "BOOLEANO" and tipo_esperado != "Logico":
-            return f"No se puede asignar Logico a variable de tipo {tipo_esperado}"
+            return f"Uy no, eso es Logico y la variable es {tipo_esperado}, no mezcles eso compadre"
         if t["tipo"] == "CADENA" and tipo_esperado != "Texto":
-            return f"No se puede asignar Texto a variable de tipo {tipo_esperado}"
+            return f"Joa, eso es Texto y la variable es {tipo_esperado}, revisa bien"
         if t["tipo"] == "NUMERO_ENTERO" and tipo_esperado == "Texto":
-            return f"No se puede asignar Entero a variable de tipo Texto"
+            return f"Epa epa, no puedes meter un Entero en una variable Texto, piénsalo bien"
         if t["tipo"] == "NUMERO_REAL" and tipo_esperado == "Texto":
-            return f"No se puede asignar Real a variable de tipo Texto"
+            return f"Joa, un Real no cabe en un Texto, eso está malo compadre"
         if t["tipo"] == "NUMERO_REAL" and tipo_esperado == "Entero":
-            return f"No se puede asignar Real a variable de tipo Entero"
+            return f"Ombe, un Real no es un Entero, revisa eso que está malo"
     return None
 
 def analizar_segmento(tokens, variables):
@@ -94,14 +95,14 @@ def analizar_segmento(tokens, variables):
     if not tks:
         return None
     if not tokens or tokens[-1]["tipo"] != "PUNTO_COMA":
-        return "Falta ';' al final de la instrucción"
+        return "Se te olvidó el punto y coma al final, ponle el ';' ahí compadre"
 
     for t in tks:
         if t["tipo"] == "IDENTIFICADOR":
             val_lower = t["valor"].lower()
             if val_lower in KEYWORDS_LOWER and t["valor"] not in KEYWORDS_CORRECTOS:
                 correcto = next(k for k in KEYWORDS_CORRECTOS if k.lower() == val_lower)
-                return f"'{t['valor']}' debe escribirse como '{correcto}'"
+                return f"Revisa bien compadre, '{t['valor']}' se escribe es '{correcto}'"
 
     n = len(tks)
 
@@ -110,7 +111,7 @@ def analizar_segmento(tokens, variables):
         nombre = tks[0]["valor"]
         tipo   = tks[1]["valor"]
         if nombre in KEYWORDS_CORRECTOS:
-            return f"'{nombre}' es una palabra reservada"
+            return f"Joa, '{nombre}' es una palabra reservada, búscate otro nombre"
         variables[nombre] = {"tipo": tipo, "inicializada": False, "valor": None}
         return None
 
@@ -123,30 +124,40 @@ def analizar_segmento(tokens, variables):
         m = re.match(r"Captura\.(Entero|Real|Texto|Logico)", tks[2]["valor"])
         tipo_captura = m.group(1) if m else None
         if nombre not in variables:
-            return f"Variable '{nombre}' no fue declarada"
+            return f"Ombe, '{nombre}' no está declarada, declárale primero compadre"
         if variables[nombre]["tipo"] != tipo_captura:
-            return (f"Tipo incompatible: '{nombre}' es {variables[nombre]['tipo']} "
-                    f"pero se captura como {tipo_captura}")
+            return f"Epa compadre, '{nombre}' es {variables[nombre]['tipo']} pero lo estás capturando como {tipo_captura}, eso no funciona"
         variables[nombre]["inicializada"] = True
         return None
 
-    # MENSAJE con cadena literal: Mensaje.Texto("...");
+    # MENSAJE: Mensaje.Texto(elem1, elem2, ...);
     if tks[0]["tipo"] == "MENSAJE":
-        if (n == 4
+        if (n >= 4
                 and tks[1]["tipo"] == "PARENTESIS_AB"
-                and tks[2]["tipo"] == "CADENA"
-                and tks[3]["tipo"] == "PARENTESIS_CI"):
+                and tks[-1]["tipo"] == "PARENTESIS_CI"):
+            contenido = tks[2:-1]
+            elementos, actual = [], []
+            for t in contenido:
+                if t["tipo"] == "COMA":
+                    elementos.append(actual)
+                    actual = []
+                else:
+                    actual.append(t)
+            elementos.append(actual)
+            for elem in elementos:
+                if len(elem) == 0:
+                    return "Joa, hay un elemento vacío en el Mensaje.Texto(), revisa esas comas"
+                if len(elem) == 1:
+                    t = elem[0]
+                    if t["tipo"] == "CADENA":
+                        continue
+                    if t["tipo"] == "IDENTIFICADOR":
+                        if t["valor"] not in variables:
+                            return f"Epa, '{t['valor']}' no existe, declárale primero"
+                        continue
+                return "Ombe, en el Mensaje.Texto() solo van cadenas o variables, nada más"
             return None
-        # MENSAJE con variable: Mensaje.Texto(variable);
-        if (n == 4
-                and tks[1]["tipo"] == "PARENTESIS_AB"
-                and tks[2]["tipo"] == "IDENTIFICADOR"
-                and tks[3]["tipo"] == "PARENTESIS_CI"):
-            nombre_var = tks[2]["valor"]
-            if nombre_var not in variables:
-                return f"Variable '{nombre_var}' no fue declarada"
-            return None
-        return 'Sintaxis incorrecta. Uso: Mensaje.Texto("texto"); o Mensaje.Texto(variable);'
+        return 'Joa ese Mensaje.Texto() está malo, úsalo así: Mensaje.Texto("texto"); o Mensaje.Texto(variable); o Mensaje.Texto("texto", variable);'
 
     # ASIGNACIÓN: nombre = expresión
     if (n >= 3
@@ -161,14 +172,14 @@ def analizar_segmento(tokens, variables):
         variables[nombre]["inicializada"] = True
         return None
 
-    return f"Instrucción no reconocida: '{' '.join(t['valor'] for t in tokens)}'"
+    return f"Eso no lo entiendo compadre, revisa bien esa línea: '{' '.join(t['valor'] for t in tokens)}'"
 
 def analizar_linea(tokens, variables):
     if not tokens:
         return None
     hay_desc = next((t for t in tokens if t["tipo"] == "DESCONOCIDO"), None)
     if hay_desc:
-        return f"Carácter no reconocido: '{hay_desc['valor']}'"
+        return f"Joa, '{hay_desc['valor']}' no hace parte del Costeñol, quítalo de ahí"
     segmentos = dividir_por_punto_coma(tokens)
     if len(segmentos) > 1:
         for seg in segmentos:
@@ -269,14 +280,27 @@ def ejecutar_segmento(tokens, variables, salida_fn, captura_fn):
         variables[nombre]["inicializada"] = True
         return
 
-    # MENSAJE con cadena literal o variable
-    if tks[0]["tipo"] == "MENSAJE" and n == 4 and tks[1]["tipo"] == "PARENTESIS_AB" and tks[3]["tipo"] == "PARENTESIS_CI":
-        contenido = tks[2]
-        if contenido["tipo"] == "CADENA":
-            salida_fn(contenido["valor"].strip('"'))
-        elif contenido["tipo"] == "IDENTIFICADOR":
-            val = variables.get(contenido["valor"], {}).get("valor")
-            salida_fn(str(val) if val is not None else "(sin valor)")
+    # MENSAJE con concatenacion por coma
+    if tks[0]["tipo"] == "MENSAJE" and tks[1]["tipo"] == "PARENTESIS_AB" and tks[-1]["tipo"] == "PARENTESIS_CI":
+        contenido = tks[2:-1]
+        elementos, actual = [], []
+        for t in contenido:
+            if t["tipo"] == "COMA":
+                elementos.append(actual)
+                actual = []
+            else:
+                actual.append(t)
+        elementos.append(actual)
+        partes = []
+        for elem in elementos:
+            if len(elem) == 1:
+                t = elem[0]
+                if t["tipo"] == "CADENA":
+                    partes.append(t["valor"].strip('"'))
+                elif t["tipo"] == "IDENTIFICADOR":
+                    val = variables.get(t["valor"], {}).get("valor")
+                    partes.append(str(val) if val is not None else "(sin valor)")
+        salida_fn("".join(partes))
         return
 
     # ASIGNACIÓN
@@ -325,7 +349,7 @@ FONT_BOLD = ("Segoe UI", 10, "bold")
 class CompiladorApp:
     def __init__(self, root):
         self.root = root
-        self.root.title("Compilador Costeñol — Entrega")
+        self.root.title("Compilador Costeñol — Entrega ")
         self.root.configure(bg=BG)
         self.root.geometry("1100x680")
         self.root.minsize(800, 500)
@@ -344,9 +368,9 @@ class CompiladorApp:
         hdr.pack_propagate(False)
         tk.Label(hdr, text=" CUL ", bg=ACCENT, fg=BG,
                  font=("Segoe UI", 11, "bold"), padx=6).pack(side=tk.LEFT, padx=12, pady=10)
-        tk.Label(hdr, text="COMPILADOR COSTEÑOL", bg=PANEL, fg=TEXTO,
+        tk.Label(hdr, text="Compilador Costeñol", bg=PANEL, fg=TEXTO,
                  font=("Segoe UI", 13, "bold")).pack(side=tk.LEFT, pady=10)
-        tk.Label(hdr, text="ENTREGA", bg=VERDE, fg=BG,
+        tk.Label(hdr, text="Entrega", bg=VERDE, fg=BG,
                  font=("Segoe UI", 9, "bold"), padx=8).pack(side=tk.RIGHT, padx=12, pady=14)
 
         # CUERPO
@@ -388,9 +412,9 @@ class CompiladorApp:
         # Botones
         bf = tk.Frame(left, bg=PANEL, pady=6)
         bf.pack(fill=tk.X)
-        self._btn(bf, "▶  Compilar y Ejecutar", self.compilar, ACCENT, BG   ).pack(side=tk.LEFT, padx=8)
+        self._btn(bf, "▶  Compila pa' ve si sabes", self.compilar, ACCENT, BG   ).pack(side=tk.LEFT, padx=8)
         self._btn(bf, "✕  Limpiar",             self.limpiar,  BORDER, TEXTO).pack(side=tk.LEFT)
-        self._btn(bf, "💾  Guardar .PQEK",       self.guardar,  BG2,    AZUL ).pack(side=tk.RIGHT, padx=8)
+        self._btn(bf, "💾  Guardalo pue' .PQEK",       self.guardar,  BG2,    AZUL ).pack(side=tk.RIGHT, padx=8)
 
         # ── DERECHA: resultados ──────────────────────────────
         right = tk.Frame(body, bg=BG)
@@ -501,7 +525,7 @@ class CompiladorApp:
 
         # Barra de estado
         self.status = tk.Label(self.root,
-                               text="  Listo — escriba código Costeñol y presione Compilar y Ejecutar",
+                               text="  Escribe el codigo pa' ver si es verdad que sabes",
                                bg=PANEL, fg=MUTED, font=("Segoe UI", 9), anchor="w", pady=4)
         self.status.pack(fill=tk.X, side=tk.BOTTOM)
 
@@ -586,7 +610,7 @@ class CompiladorApp:
             for row in self.tree.get_children():
                 self.tree.delete(row)
             for nombre, info in variables_ejec.items():
-                estado = "✔ Inicializada" if info["inicializada"] else "⚠ Sin valor"
+                estado = "✔ Inicializada" if info["inicializada"] else " Sin valor"
                 valor  = str(info["valor"]) if info["valor"] is not None else "—"
                 tag    = "init" if info["inicializada"] else "no_init"
                 self.tree.insert("", tk.END,
@@ -594,10 +618,10 @@ class CompiladorApp:
                                  tags=(tag,))
 
     def _esperar_confirmacion(self):
-        try:
-            self._q_respuesta.get_nowait()
+        # Revisa si el panel de captura ya fue ocultado (el usuario confirmó)
+        if not self.frame_input.winfo_ismapped():
             self.root.after(50, self._poll_pedidos)
-        except queue.Empty:
+        else:
             self.root.after(100, self._esperar_confirmacion)
 
     # ── COMPILAR Y EJECUTAR ──────────────────────────────────
@@ -611,15 +635,15 @@ class CompiladorApp:
         if errores:
             self.banner.config(text="✘  BARRO, TE TOCÓ PERDER", fg=ROJO)
             self.status.config(
-                text=f"  {len(errores)} error(es) encontrado(s) — corrija antes de ejecutar")
+                text=f"  {len(errores)} error(es) encontrado(s) — corrija eso cuadro")
         else:
             self.banner.config(text="✔  ¡MONO CUCO!", fg=VERDE)
-            self.status.config(text="  Sin errores — iniciando ejecución...")
+            self.status.config(text="  Sin errores — todo mono")
 
         # Pestaña Errores
         def mostrar_errores(w):
             if not errores:
-                w.insert(tk.END, "✔  Sin errores — compilación exitosa.\n\n", "ok")
+                w.insert(tk.END, " Sin errores — funciona todo bien.\n\n", "ok")
                 w.insert(tk.END,
                     "Todas las variables están correctamente declaradas\n"
                     "y la sintaxis es válida. Procediendo a ejecución.\n", "hint")
